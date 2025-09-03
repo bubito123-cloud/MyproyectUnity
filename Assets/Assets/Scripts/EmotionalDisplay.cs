@@ -264,16 +264,16 @@ public class EmotionalDisplay : MonoBehaviour
         switch (dominantEmotion)
         {
             case "motivation":
-                main.startColor = motivationColor;
+                main.startColor = new ParticleSystem.MinMaxGradient(motivationColor);
                 break;
             case "satisfaction":
-                main.startColor = satisfactionColor;
+                main.startColor = new ParticleSystem.MinMaxGradient(satisfactionColor);
                 break;
             case "frustration":
-                main.startColor = frustrationColor;
+                main.startColor = new ParticleSystem.MinMaxGradient(frustrationColor);
                 break;
             case "curiosity":
-                main.startColor = curiosityColor;
+                main.startColor = new ParticleSystem.MinMaxGradient(curiosityColor);
                 break;
         }
     }

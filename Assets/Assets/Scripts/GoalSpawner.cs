@@ -27,7 +27,7 @@ public class GoalSpawner : MonoBehaviour
     private void Start()
     {
         // Find agent transform
-        ArtificialHuman agent = FindObjectOfType<ArtificialHuman>();
+        ArtificialHumanAgent agent = FindObjectOfType<ArtificialHumanAgent>();
         if (agent != null)
         {
             agentTransform = agent.transform;
@@ -124,10 +124,10 @@ public class GoalSpawner : MonoBehaviour
         Debug.Log($"Goal spawned at {spawnPosition}");
 
         // Notify agent about new goal
-        MLAgentWithEmotions agent = FindObjectOfType<MLAgentWithEmotions>();
-        if (agent != null)
+        PerceptionSystem perception = FindObjectOfType<PerceptionSystem>();
+        if (perception != null)
         {
-            agent.goalTarget = currentGoal.transform;
+            perception.goalTarget = currentGoal.transform;
         }
     }
 
@@ -212,7 +212,7 @@ public class GoalSpawner : MonoBehaviour
 
             particles = particleGO.AddComponent<ParticleSystem>();
             var main = particles.main;
-            main.startColor = Color.green;
+            main.startColor = new ParticleSystem.MinMaxGradient(Color.green);
             main.startLifetime = 2f;
             main.startSpeed = 2f;
             main.maxParticles = 50;
@@ -246,10 +246,10 @@ public class GoalSpawner : MonoBehaviour
             currentGoal = null;
 
             // Clear agent's goal target
-            MLAgentWithEmotions agent = FindObjectOfType<MLAgentWithEmotions>();
-            if (agent != null)
+            PerceptionSystem perception = FindObjectOfType<PerceptionSystem>();
+            if (perception != null)
             {
-                agent.goalTarget = null;
+                perception.goalTarget = null;
             }
         }
     }

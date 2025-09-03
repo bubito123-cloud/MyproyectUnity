@@ -340,15 +340,23 @@ public class NarratorEngine : MonoBehaviour
     {
         if (emotions == null) return "neutral";
 
-        float maxValue = Mathf.Max(emotions.motivation, emotions.satisfaction,
-                                   emotions.frustration, emotions.curiosity);
+        var emotionValues = new Dictionary<string, float>
+        {
+            { "motivated", emotions.motivation },
+            { "satisfied", emotions.satisfaction },
+            { "frustrated", emotions.frustration },
+            { "curious", emotions.curiosity }
+        };
 
-        if (maxValue == emotions.motivation) return "motivated";
-        if (maxValue == emotions.satisfaction) return "satisfied";
-        if (maxValue == emotions.frustration) return "frustrated";
-        if (maxValue == emotions.curiosity) return "curious";
+        float maxValue = emotionValues.Values.Max();
+        var dominantEmotions = emotionValues.Where(kvp => kvp.Value == maxValue).ToList();
 
-        return "balanced";
+        if (dominantEmotions.Count == 0) return "balanced";
+        if (dominantEmotions.Count == 1) return dominantEmotions[0].Key;
+
+        // Tie-breaker: randomly select one of the dominant emotions
+        int randomIndex = UnityEngine.Random.Range(0, dominantEmotions.Count);
+        return dominantEmotions[randomIndex].Key;
     }
 
     private float GetDominantEmotionValue(EmotionalState emotions)
