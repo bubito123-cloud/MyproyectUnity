@@ -1,0 +1,20 @@
+# Unity generated
+Library/
+Temp/
+Obj/
+Build/
+Logs/
+UserSettings/
+MemoryCaptures/
+
+# Asset store / Cache
+Assets/AssetStoreTools*
+Packages/PackageCache/
+
+# IDE stuff
+.vs/
+.idea/
+*.csproj
+*.sln
+*.user
+*.unityproj
