@@ -9,7 +9,7 @@ public class PerceptionSystem : MonoBehaviour
     public Transform goalTarget;
     public float maxObservationDistance = 20f;
 
-    public void CollectBasicObservations(VectorSensor sensor, Transform agentTransform, Rigidbody agentRb, EmotionalState emotions)
+    public void CollectBasicObservations(VectorSensor sensor, Transform agentTransform, Rigidbody agentRb, EmotionalState emotions, bool isStuck)
     {
         // Agent's local velocity (normalized) - 3 obs
         Vector3 localVelocity = agentTransform.InverseTransformDirection(agentRb.linearVelocity);
@@ -39,7 +39,10 @@ public class PerceptionSystem : MonoBehaviour
         sensor.AddObservation(emotions.frustration / 100f);
         sensor.AddObservation(emotions.curiosity / 100f);
 
-        // Total: 14 observations
+        // Stuck state - 1 obs
+        sensor.AddObservation(isStuck ? 1f : 0f);
+
+        // Total: 15 observations
     }
 
     public float GetDistanceToGoal(Transform agentTransform)

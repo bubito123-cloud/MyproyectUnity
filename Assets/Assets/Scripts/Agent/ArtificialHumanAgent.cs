@@ -83,7 +83,8 @@ public class ArtificialHumanAgent : Agent
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        perceptionSystem.CollectBasicObservations(sensor, transform, rb, emotionalCore.GetCurrentEmotions());
+        bool isStuck = stuckDetector?.IsStuck() ?? false;
+        perceptionSystem.CollectBasicObservations(sensor, transform, rb, emotionalCore.GetCurrentEmotions(), isStuck);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
