@@ -21,13 +21,12 @@ public class GoalSpawner : MonoBehaviour
 
     // Internal state
     private Transform agentTransform;
-    private bool goalConsumed = false;
     private float respawnTimer = 0f;
 
     private void Start()
     {
         // Find agent transform
-        ArtificialHumanAgent agent = FindObjectOfType<ArtificialHumanAgent>();
+        ArtificialHumanAgent agent = Object.FindFirstObjectByType<ArtificialHumanAgent>();
         if (agent != null)
         {
             agentTransform = agent.transform;
@@ -118,13 +117,12 @@ public class GoalSpawner : MonoBehaviour
 
         currentGoalPosition = spawnPosition;
         goalAge = 0f;
-        goalConsumed = false;
         respawnTimer = 0f;
 
         Debug.Log($"Goal spawned at {spawnPosition}");
 
         // Notify agent about new goal
-        PerceptionSystem perception = FindObjectOfType<PerceptionSystem>();
+        PerceptionSystem perception = Object.FindFirstObjectByType<PerceptionSystem>();
         if (perception != null)
         {
             perception.goalTarget = currentGoal.transform;
@@ -246,7 +244,7 @@ public class GoalSpawner : MonoBehaviour
             currentGoal = null;
 
             // Clear agent's goal target
-            PerceptionSystem perception = FindObjectOfType<PerceptionSystem>();
+            PerceptionSystem perception = Object.FindFirstObjectByType<PerceptionSystem>();
             if (perception != null)
             {
                 perception.goalTarget = null;
@@ -256,7 +254,6 @@ public class GoalSpawner : MonoBehaviour
 
     public void OnGoalReached()
     {
-        goalConsumed = true;
         DestroyCurrentGoal();
 
         if (autoRespawn)

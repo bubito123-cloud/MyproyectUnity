@@ -65,11 +65,11 @@ public class ArtificialHumanAgent : Agent
         movementController.ResetPhysics();
         episodeTimer = 0f;
 
-        GoalSpawner spawner = FindObjectOfType<GoalSpawner>();
+        GoalSpawner spawner = Object.FindFirstObjectByType<GoalSpawner>();
         if (spawner != null)
         {
             spawner.RespawnGoal();
-            perceptionSystem.goalTarget = spawner.CurrentGoal;
+            perceptionSystem.goalTarget = spawner.currentGoal.transform;
         }
 
         rewardSystem.Initialize(transform, perceptionSystem);
