@@ -19,6 +19,8 @@ public class ArtificialHumanAgent : Agent
     [Header("Goal")]
     public Transform target;
 
+    private float cumulativeReward; // To track fitness for evolution
+
     public override void Initialize()
     {
         rb = GetComponent<Rigidbody>();
@@ -28,6 +30,7 @@ public class ArtificialHumanAgent : Agent
 
     public override void OnEpisodeBegin()
     {
+        cumulativeReward = 0f; // Reset fitness at the start of an episode
         rb.linearVelocity = Vector3.zero;
         rb.angularVelocity = Vector3.zero;
         transform.localPosition = new Vector3(UnityEngine.Random.value * 8 - 4, 0.5f, UnityEngine.Random.value * 8 - 4);
@@ -42,8 +45,9 @@ public class ArtificialHumanAgent : Agent
             }
             else
             {
-                Debug.LogError("Goal object with 'Goal' script not found in scene. Please add one.");
-                return; // Stop if no goal is found
+                Debug.LogError("Goal object with 'Goal' script not found in scene. Please add one. Agent will be disabled.");
+                gameObject.SetActive(false);
+                return;
             }
         }
 
@@ -72,7 +76,10 @@ public class ArtificialHumanAgent : Agent
         Vector3 force = transform.forward * moveZ * forceMultiplier;
         rb.AddForce(force);
 
-        AddReward(-0.05f);
+        // A small penalty for existing to encourage efficiency.
+        float timePenalty = -0.005f;
+        AddReward(timePenalty);
+        cumulativeReward += timePenalty;
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -90,8 +97,20 @@ public class ArtificialHumanAgent : Agent
     {
         if (collision.gameObject.GetComponent<Goal>() != null)
         {
-            AddReward(1.0f);
+            float goalReward = 1.0f;
+            AddReward(goalReward);
+            cumulativeReward += goalReward;
             EndEpisode();
+        }
+    }
+
+    // --- NEW: Report fitness to the EvolutionManager when the episode ends ---
+    public override void OnEpisodeEnd()
+    {
+        if (EvolutionManager.Instance != null)
+        {
+            // Use the instance ID to uniquely identify this agent for this generation
+            EvolutionManager.Instance.ReportFitnessAndGenome(gameObject.GetInstanceID(), cumulativeReward, genome);
         }
     }
 }

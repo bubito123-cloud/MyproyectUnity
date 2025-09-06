@@ -13,34 +13,36 @@ public class UnderstoodConcept
 
 /// <summary>
 /// The agent's module for learning and understanding concepts in the world.
-/// It sees an object, asks the KnowledgeBridge what it is, and forms an internal model.
+/// It now uses structured data from the KnowledgeBridge.
 /// </summary>
 public class Conceptualizer : MonoBehaviour
 {
     public Dictionary<string, UnderstoodConcept> knownConcepts = new Dictionary<string, UnderstoodConcept>();
 
     /// <summary>
-    /// Learns about a new concept by querying the KnowledgeBridge and digesting the information.
+    /// Learns about a new concept by querying the KnowledgeBridge and using the structured info.
     /// </summary>
     public UnderstoodConcept LearnNewConcept(string conceptName)
     {
-        if (knownConcepts.ContainsKey(conceptName.ToUpper()))
+        string upperConceptName = conceptName.ToUpper();
+        if (knownConcepts.ContainsKey(upperConceptName))
         {
-            return knownConcepts[conceptName.ToUpper()];
+            return knownConcepts[upperConceptName];
         }
 
         Debug.Log($"<color=lightblue>[Conceptualizer] Encountered unknown concept: '{conceptName}'. Querying Knowledge Bridge...</color>");
-        string rawInfo = KnowledgeBridge.GetConceptInfo(conceptName);
-        Debug.Log($"<color=lightblue>[Conceptualizer] Info received: \"{rawInfo}\"</color>");
-
-        // --- The "Digestion" Process ---
-        UnderstoodConcept newConcept = new UnderstoodConcept { Name = conceptName.ToUpper() };
         
-        if (rawInfo.Contains("Positivo")) newConcept.Valence = 1.0f;
-        else if (rawInfo.Contains("Negativo")) newConcept.Valence = -1.0f;
-        else newConcept.Valence = 0.0f;
+        // --- REFACTORED: Use structured data directly ---
+        ConceptEntry conceptInfo = KnowledgeBridge.GetConceptInfo(conceptName);
+        Debug.Log($"<color=lightblue>[Conceptualizer] Info received for '{conceptInfo.name}'. Valence: {conceptInfo.valence}, Dangerous: {conceptInfo.isDangerous}</color>");
 
-        if (rawInfo.Contains("Peligroso") || rawInfo.Contains("Daño")) newConcept.IsDangerous = true;
+        // --- The "Digestion" Process is now direct mapping ---
+        UnderstoodConcept newConcept = new UnderstoodConcept
+        {
+            Name = upperConceptName,
+            Valence = conceptInfo.valence,
+            IsDangerous = conceptInfo.isDangerous
+        };
 
         Debug.Log($"<color=lightblue>[Conceptualizer] Digested! '{newConcept.Name}' is considered { (newConcept.Valence > 0 ? "Good" : (newConcept.Valence < 0 ? "Bad" : "Neutral")) } and {(newConcept.IsDangerous ? "Dangerous" : "Safe")}.</color>");
 

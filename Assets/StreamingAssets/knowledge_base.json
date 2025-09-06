@@ -1,0 +1,28 @@
+{
+  "concepts": [
+    {
+      "name": "MANZANA",
+      "description": "Concepto: Fruta. Atributos: Comestible, Dulce, Fuente de energía. Implicación: Positivo, Reduce el hambre.",
+      "valence": 0.8,
+      "isDangerous": false
+    },
+    {
+      "name": "FUEGO",
+      "description": "Concepto: Elemento. Atributos: Caliente, Peligroso, Quema. Implicación: Negativo, Causa daño, Evitar.",
+      "valence": -1.0,
+      "isDangerous": true
+    },
+    {
+      "name": "LIBRO",
+      "description": "Concepto: Objeto. Atributos: Informativo, Pasivo. Implicación: Neutral, Potencial para la curiosidad.",
+      "valence": 0.1,
+      "isDangerous": false
+    },
+    {
+      "name": "AGUA",
+      "description": "Concepto: Líquido. Atributos: Hidratante, Esencial para la vida. Implicación: Positivo.",
+      "valence": 0.7,
+      "isDangerous": false
+    }
+  ]
+}

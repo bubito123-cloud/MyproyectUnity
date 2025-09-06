@@ -1,8 +1,8 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text; // Using StringBuilder for efficient string concatenation
 
-// ADDED: New goal type for social interaction
 public enum SubGoalType { Explore, GoToKey, GoToExit, ApproachConcept, AvoidConcept, ApproachAgent }
 public enum SubGoalPriority { Trivial, Low, Medium, High, Critical }
 
@@ -18,6 +18,11 @@ public class SubGoal
         type = t;
         priority = p;
     }
+
+    public override string ToString()
+    {
+        return $"Goal: {type}, Priority: {priority}, Position: {position}";
+    }
 }
 
 [RequireComponent(typeof(PerceptionSystem), typeof(Conceptualizer))]
@@ -32,10 +37,13 @@ public class DeliberativePlanner : MonoBehaviour
         conceptualizer = GetComponent<Conceptualizer>();
     }
 
-    // CORRECTED: Now accepts the agent's genome to make decisions based on personality.
     public SubGoal CreateNewSubGoal(AgentGenome genome, bool hasKey, Transform agentTransform)
     {
         var potentialGoals = new List<SubGoal>();
+
+        // --- ENHANCED LOGGING ---
+        var logBuilder = new StringBuilder();
+        logBuilder.AppendLine($"<color=orange>[Planner] Starting deliberation for agent {gameObject.GetInstanceID()}.</color>");
 
         var perceivedConcepts = perceptionSystem.GetPerceivedConcepts();
         var perceivedAgents = perceptionSystem.GetPerceivedAgents();
@@ -53,12 +61,17 @@ public class DeliberativePlanner : MonoBehaviour
             }
         }
         var criticalGoal = potentialGoals.FirstOrDefault(g => g.priority == SubGoalPriority.Critical);
-        if (criticalGoal != null) return criticalGoal;
+        if (criticalGoal != null)
+        {
+            logBuilder.AppendLine($"<color=red>Critical threat detected! Overriding all other goals to avoid '{criticalGoal}'.</color>");
+            Debug.Log(logBuilder.ToString());
+            return criticalGoal;
+        }
 
         // 2. High-Priority Social Goals: Approach other agents if social
         if (perceivedAgents.Any() && genome.socialOrientation > 0.7f)
         {
-            var targetAgent = perceivedAgents.First(); // Simple: just approach the first one seen
+            var targetAgent = perceivedAgents.First();
             potentialGoals.Add(new SubGoal(targetAgent.transform.position, SubGoalType.ApproachAgent, SubGoalPriority.High));
         }
 
@@ -87,15 +100,25 @@ public class DeliberativePlanner : MonoBehaviour
             potentialGoals.Add(new SubGoal(openArea.Value, SubGoalType.Explore, SubGoalPriority.Low));
         }
 
-        // 6. ULTIMATE FALLBACK: If there are STILL no goals, just move forward.
+        // --- ENHANCED LOGGING ---
+        logBuilder.AppendLine("Potential goals considered:");
+        foreach (var goal in potentialGoals)
+        {
+            logBuilder.AppendLine($"- {goal}");
+        }
+
+        // 6. ULTIMATE FALLBACK
         if (!potentialGoals.Any())
         {
-            Debug.Log("<color=yellow>[Planner] No specific goals found. Creating fallback goal.</color>");
+            logBuilder.AppendLine("<color=yellow>No specific goals found. Creating fallback goal.</color>");
             Vector3 fallbackPosition = agentTransform.position + agentTransform.forward * 10f;
             potentialGoals.Add(new SubGoal(fallbackPosition, SubGoalType.Explore, SubGoalPriority.Trivial));
         }
 
-        // Return the highest priority goal from the list
-        return potentialGoals.OrderByDescending(g => g.priority).FirstOrDefault();
+        var chosenGoal = potentialGoals.OrderByDescending(g => g.priority).FirstOrDefault();
+        logBuilder.AppendLine($"<color=cyan>Chosen Goal: {chosenGoal}</color>");
+        Debug.Log(logBuilder.ToString());
+
+        return chosenGoal;
     }
 }

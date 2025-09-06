@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text; // For efficient logging
 
 public class EvolutionManager : MonoBehaviour
 {
@@ -9,6 +10,7 @@ public class EvolutionManager : MonoBehaviour
     [Header("Evolution Parameters")]
     public int populationSize = 10;
     public float mutationRate = 0.05f;
+    [Tooltip("The number of best-performing agents to carry over to the next generation.")]
     public int elitism = 2;
 
     [Header("Simulation Setup")]
@@ -17,7 +19,6 @@ public class EvolutionManager : MonoBehaviour
     public float spawnAreaRadius = 20f;
 
     private List<AgentGenome> currentGeneration;
-    // Using a tuple to store fitness and genome. Item1 is fitness, Item2 is genome.
     private Dictionary<int, (float, AgentGenome)> fitnessReports;
     private int generationCount = 0;
 
@@ -36,6 +37,19 @@ public class EvolutionManager : MonoBehaviour
 
     void Start()
     {
+        // --- ROBUSTNESS: Validate parameters on start ---
+        if (agentPrefab == null)
+        {
+            Debug.LogError("[EvolutionManager] Agent Prefab is not assigned! Disabling script.", this);
+            this.enabled = false;
+            return;
+        }
+        if (elitism >= populationSize)
+        {
+            Debug.LogWarning($"[EvolutionManager] Elitism ({elitism}) is >= population size ({populationSize}). Adjusting to {populationSize - 1}.", this);
+            elitism = Mathf.Max(0, populationSize - 1);
+        }
+
         fitnessReports = new Dictionary<int, (float, AgentGenome)>();
         currentGeneration = new List<AgentGenome>();
         for (int i = 0; i < populationSize; i++)
@@ -48,23 +62,31 @@ public class EvolutionManager : MonoBehaviour
     public void StartGeneration(List<AgentGenome> newGenomes)
     {
         generationCount++;
-        Debug.Log($"<color=green>--- STARTING GENERATION {generationCount} ---</color>");
+        Debug.Log($"<color=green>--- STARTING GENERATION {generationCount} (Population: {newGenomes.Count}) ---</color>");
 
         currentGeneration = newGenomes;
         fitnessReports.Clear();
 
         if (populationSize <= 0)
         {
-            Debug.LogError("[EvolutionManager] Population Size is 0! Cannot spawn agents. Please set a value greater than 0 in the Inspector.");
+            Debug.LogError("[EvolutionManager] Population Size is 0! Cannot spawn agents.");
             return;
         }
 
-        for (int i = 0; i < populationSize; i++)
+        // Destroy old agents before creating new ones
+        foreach (var agent in FindObjectsOfType<ArtificialHumanAgent>())
         {
-            float angle = i * (360f / populationSize);
+            Destroy(agent.gameObject);
+        }
+
+        for (int i = 0; i < newGenomes.Count; i++)
+        {
+            float angle = i * (360f / newGenomes.Count);
             Vector3 spawnPosition = spawnAreaCenter.position + new Vector3(Mathf.Cos(angle * Mathf.Deg2Rad), 0, Mathf.Sin(angle * Mathf.Deg2Rad)) * spawnAreaRadius;
+            spawnPosition.y = agentPrefab.transform.position.y; // Ensure correct spawn height
 
             GameObject agentGO = Instantiate(agentPrefab, spawnPosition, Quaternion.identity);
+            agentGO.name = $"Agent_{generationCount}_{i}";
             ArtificialHumanAgent agent = agentGO.GetComponent<ArtificialHumanAgent>();
             agent.genome = newGenomes[i];
             agent.Initialize();
@@ -78,6 +100,7 @@ public class EvolutionManager : MonoBehaviour
             fitnessReports.Add(agentInstanceId, (fitness, genome));
         }
 
+        // Check if all agents from the current generation have reported
         if (fitnessReports.Count >= populationSize)
         {
             Evolve();
@@ -86,19 +109,38 @@ public class EvolutionManager : MonoBehaviour
 
     private void Evolve()
     {
-        // CORRECTED: Use .Item1 to access the fitness value from the tuple.
+        // --- ROBUSTNESS: Handle case of empty fitness reports ---
+        if (fitnessReports.Count == 0)
+        {
+            Debug.LogWarning("[EvolutionManager] Evolve called with no fitness reports. Restarting generation.");
+            StartGeneration(currentGeneration); // Restart with the same generation
+            return;
+        }
+
         var sortedGenomes = fitnessReports.Values.OrderByDescending(report => report.Item1).ToList();
+
+        // --- ENHANCED LOGGING ---
+        var logBuilder = new StringBuilder();
+        logBuilder.AppendLine($"<color=yellow>--- EVOLVING GENERATION {generationCount} ---</color>");
+        logBuilder.AppendLine($"Top {elitism} performers (the 'elite'):");
+        for(int i = 0; i < Mathf.Min(elitism, sortedGenomes.Count); i++)
+        {
+            logBuilder.AppendLine($"  - Fitness: {sortedGenomes[i].Item1:F3}, Genome: {sortedGenomes[i].Item2}");
+        }
+        Debug.Log(logBuilder.ToString());
 
         List<AgentGenome> nextGeneration = new List<AgentGenome>();
 
+        // 1. Elitism
         for (int i = 0; i < elitism; i++)
         {
-            nextGeneration.Add(sortedGenomes[i].Item2); // .Item2 is the genome
+            nextGeneration.Add(sortedGenomes[i].Item2);
         }
 
+        // 2. Crossover & Mutation
         while (nextGeneration.Count < populationSize)
         {
-            AgentGenome parent1 = SelectParent(sortedGenomes).Item2; // .Item2 is the genome
+            AgentGenome parent1 = SelectParent(sortedGenomes).Item2;
             AgentGenome parent2 = SelectParent(sortedGenomes).Item2;
 
             AgentGenome child = AgentGenome.Crossover(parent1, parent2);
@@ -107,15 +149,10 @@ public class EvolutionManager : MonoBehaviour
             nextGeneration.Add(child);
         }
 
-        // CORRECTED: Use modern, more performant FindObjectsByType.
-        foreach (var agent in FindObjectsByType<ArtificialHumanAgent>(FindObjectsSortMode.None))
-        {
-            Destroy(agent.gameObject);
-        }
-
         StartGeneration(nextGeneration);
     }
 
+    // Tournament Selection
     private (float, AgentGenome) SelectParent(List<(float, AgentGenome)> sortedPopulation)
     {
         int tournamentSize = 3;
@@ -124,7 +161,6 @@ public class EvolutionManager : MonoBehaviour
         {
             tournamentContestants.Add(sortedPopulation[Random.Range(0, sortedPopulation.Count)]);
         }
-        // CORRECTED: Use .Item1 to access fitness for sorting.
         return tournamentContestants.OrderByDescending(c => c.Item1).First();
     }
 }
