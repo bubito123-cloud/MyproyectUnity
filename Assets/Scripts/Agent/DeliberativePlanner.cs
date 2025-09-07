@@ -2,100 +2,111 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
-// ADDED: New goal type for social interaction
-public enum SubGoalType { Explore, GoToKey, GoToExit, ApproachConcept, AvoidConcept, ApproachAgent }
-public enum SubGoalPriority { Trivial, Low, Medium, High, Critical }
+// Enums and SubGoal class are unchanged
+public enum SubGoalType { Explore, GoToKey, GoToExit, ApproachConcept, AvoidConcept, ApproachAgent, FollowAgent, AvoidAgent, GoToFoodSource }
+public enum SubGoalPriority { Trivial = 0, Low = 1, Medium = 2, High = 3, Critical = 4 }
 
 public class SubGoal
 {
     public Vector3 position;
     public SubGoalType type;
     public SubGoalPriority priority;
+    public Transform targetAgent;
+    public InteractableObject interactableTarget;
 
-    public SubGoal(Vector3 pos, SubGoalType t, SubGoalPriority p)
+    public SubGoal(Vector3 pos, SubGoalType t, SubGoalPriority p, Transform agent = null, InteractableObject interactable = null)
     {
         position = pos;
         type = t;
         priority = p;
+        targetAgent = agent;
+        interactableTarget = interactable;
+    }
+
+    public override string ToString()
+    {
+        return $"Goal: {type}, Priority: {priority}, Position: {position}";
     }
 }
 
-[RequireComponent(typeof(PerceptionSystem), typeof(Conceptualizer))]
+
+[RequireComponent(typeof(PerceptionSystem), typeof(Conceptualizer), typeof(SocialEngine))]
 public class DeliberativePlanner : MonoBehaviour
 {
     private PerceptionSystem perceptionSystem;
-    private Conceptualizer conceptualizer;
+    private SocialEngine socialEngine;
 
     void Awake()
     {
+        // --- FIX: KnowledgeBridge now initializes itself. This call is no longer needed. ---
+        // KnowledgeBridge.Initialize(); 
         perceptionSystem = GetComponent<PerceptionSystem>();
-        conceptualizer = GetComponent<Conceptualizer>();
+        socialEngine = GetComponent<SocialEngine>();
     }
 
-    // CORRECTED: Now accepts the agent's genome to make decisions based on personality.
-    public SubGoal CreateNewSubGoal(AgentGenome genome, bool hasKey, Transform agentTransform)
+    public SubGoal CreateNewSubGoal(AgentGenome genome, bool hasKey, Transform agentTransform, EmotionalState emotions)
     {
+        // --- FIX: Access the KnowledgeBridge singleton instance --- 
+        if (KnowledgeBridge.Instance == null || !KnowledgeBridge.Instance.IsInitialized())
+        {
+            // If the knowledge base isn't ready, the agent should wait or explore.
+            // This prevents errors if the planner runs before the KB has loaded its data.
+            Vector3 fallbackExploration = agentTransform.position + new Vector3(Random.insideUnitSphere.x * 10, 0, Random.insideUnitSphere.z * 10);
+            return new SubGoal(fallbackExploration, SubGoalType.Explore, SubGoalPriority.Trivial);
+        }
+
         var potentialGoals = new List<SubGoal>();
+        List<PerceivedObject> allPerceivedObjects = perceptionSystem.GetPerceivedObjects();
 
-        var perceivedConcepts = perceptionSystem.GetPerceivedConcepts();
-        var perceivedAgents = perceptionSystem.GetPerceivedAgents();
+        int frustrationBonus = (int)(emotions.frustration / 33f);
+        int curiosityBonus = (int)(emotions.curiosity / 25f);
 
-        // 1. Critical Goals: Avoid immediate danger
-        foreach (var conceptTag in perceivedConcepts)
+        // --- All calls now use `KnowledgeBridge.Instance` ---
+        var dangerousConcepts = KnowledgeBridge.Instance.GetAllConcepts().Where(c => c.isDangerous).Select(c => c.name.ToUpper());
+        var perceivedDangers = allPerceivedObjects
+            .Where(o => o.transform.GetComponent<ConceptTag>() != null && dangerousConcepts.Contains(o.transform.GetComponent<ConceptTag>().ConceptName.ToUpper()))
+            .ToList();
+
+        if (perceivedDangers.Any())
         {
-            if (conceptualizer.knownConcepts.TryGetValue(conceptTag.ConceptName.ToUpper(), out var concept))
-            {
-                if (concept.IsDangerous)
-                {
-                    Vector3 avoidancePosition = agentTransform.position + (agentTransform.position - conceptTag.transform.position).normalized * 10f;
-                    potentialGoals.Add(new SubGoal(avoidancePosition, SubGoalType.AvoidConcept, SubGoalPriority.Critical));
-                }
-            }
-        }
-        var criticalGoal = potentialGoals.FirstOrDefault(g => g.priority == SubGoalPriority.Critical);
-        if (criticalGoal != null) return criticalGoal;
-
-        // 2. High-Priority Social Goals: Approach other agents if social
-        if (perceivedAgents.Any() && genome.socialOrientation > 0.7f)
-        {
-            var targetAgent = perceivedAgents.First(); // Simple: just approach the first one seen
-            potentialGoals.Add(new SubGoal(targetAgent.transform.position, SubGoalType.ApproachAgent, SubGoalPriority.High));
+            var closestDanger = perceivedDangers.OrderBy(d => Vector3.Distance(agentTransform.position, d.transform.position)).First();
+            Vector3 avoidancePosition = agentTransform.position + (agentTransform.position - closestDanger.transform.position).normalized * 15f;
+            return new SubGoal(avoidancePosition, SubGoalType.AvoidConcept, SubGoalPriority.Critical, null, closestDanger.transform.GetComponent<InteractableObject>());
         }
 
-        // 3. High-Priority Conceptual Goals: Investigate positive concepts if curious
-        if (perceivedConcepts.Any() && genome.curiosity > 0.6f)
+        if (emotions.satisfaction < 50f)
         {
-            foreach (var conceptTag in perceivedConcepts)
+            var foodConcepts = KnowledgeBridge.Instance.GetAllConcepts().Where(c => c.name.ToUpper() == "MANZANA").Select(c => c.name.ToUpper());
+            var perceivedFood = allPerceivedObjects
+                .Where(o => o.transform.GetComponent<ConceptTag>() != null && foodConcepts.Contains(o.transform.GetComponent<ConceptTag>().ConceptName.ToUpper()))
+                .Select(o => o.transform.GetComponent<FoodSource>())
+                .FirstOrDefault(fs => fs != null && fs.isAvailable);
+
+            if (perceivedFood != null)
             {
-                if (conceptualizer.knownConcepts.TryGetValue(conceptTag.ConceptName.ToUpper(), out var concept))
-                {
-                    if (concept.Valence > 0)
-                    {
-                        potentialGoals.Add(new SubGoal(conceptTag.transform.position, SubGoalType.ApproachConcept, SubGoalPriority.High));
-                    }
-                }
+                SubGoalPriority foodPriority = SubGoalPriority.Medium + (int)((50 - emotions.satisfaction) / 15f);
+                potentialGoals.Add(new SubGoal(perceivedFood.transform.position, SubGoalType.GoToFoodSource, foodPriority, null, perceivedFood));
             }
         }
 
-        // 4. Standard Goals (Placeholder)
-        if (hasKey) { potentialGoals.Add(new SubGoal(Vector3.one * 100, SubGoalType.GoToExit, SubGoalPriority.Medium)); }
-
-        // 5. Default Goal: Exploration
-        Vector3? openArea = perceptionSystem.FindMostOpenArea(agentTransform);
-        if (openArea.HasValue)
+        if (hasKey)
         {
-            potentialGoals.Add(new SubGoal(openArea.Value, SubGoalType.Explore, SubGoalPriority.Low));
+            var exitObj = allPerceivedObjects.FirstOrDefault(o => o.transform.CompareTag("Goal"));
+            if (exitObj != null) potentialGoals.Add(new SubGoal(exitObj.transform.position, SubGoalType.GoToExit, SubGoalPriority.High + frustrationBonus));
+        }
+        else
+        {
+            var keyObj = allPerceivedObjects.FirstOrDefault(o => o.transform.CompareTag("Key"));
+            if (keyObj != null) potentialGoals.Add(new SubGoal(keyObj.transform.position, SubGoalType.GoToKey, SubGoalPriority.Medium + curiosityBonus));
         }
 
-        // 6. ULTIMATE FALLBACK: If there are STILL no goals, just move forward.
         if (!potentialGoals.Any())
         {
-            Debug.Log("<color=yellow>[Planner] No specific goals found. Creating fallback goal.</color>");
-            Vector3 fallbackPosition = agentTransform.position + agentTransform.forward * 10f;
-            potentialGoals.Add(new SubGoal(fallbackPosition, SubGoalType.Explore, SubGoalPriority.Trivial));
+            Vector3 randomDirection = Random.insideUnitSphere * 15f;
+            Vector3 explorationPoint = agentTransform.position + new Vector3(randomDirection.x, 0, randomDirection.z);
+            potentialGoals.Add(new SubGoal(explorationPoint, SubGoalType.Explore, SubGoalPriority.Trivial + (int)(curiosityBonus * 0.5f)));
         }
 
-        // Return the highest priority goal from the list
-        return potentialGoals.OrderByDescending(g => g.priority).FirstOrDefault();
+        return potentialGoals.OrderByDescending(g => g.priority).First();
     }
 }

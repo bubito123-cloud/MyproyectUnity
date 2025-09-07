@@ -5,8 +5,13 @@ using System.Collections;
 // The filename MUST be EmotionalDisplay.cs
 public class EmotionalDisplay : MonoBehaviour
 {
+    [Header("Target Agent")]
+    public EmotionalCore agentEmotionalCore; // Assign the agent's EmotionalCore in the inspector
+
     [Header("UI References")]
-    public TextMeshProUGUI displayText;
+    public TextMeshProUGUI satisfactionText;
+    public TextMeshProUGUI frustrationText;
+    public TextMeshProUGUI narrationText; // Renamed from displayText for clarity
 
     [Header("Animation Settings")]
     public float charactersPerSecond = 50f;
@@ -14,34 +19,51 @@ public class EmotionalDisplay : MonoBehaviour
 
     private Coroutine currentDisplayCoroutine;
 
+    void Update()
+    {
+        // Continuously update the emotional state display
+        if (agentEmotionalCore != null)
+        {
+            EmotionalState currentState = agentEmotionalCore.GetCurrentState();
+            if (satisfactionText != null)
+            {
+                satisfactionText.text = $"Satisfaction: {currentState.satisfaction:F1}";
+            }
+            if (frustrationText != null)
+            {
+                frustrationText.text = $"Frustration: {currentState.frustration:F1}";
+            }
+        }
+    }
+
     /// <summary>
     /// Public method that the NarratorEngine can call.
-    /// It starts the text animation process.
+    /// It starts the text animation process for narration.
     /// </summary>
-    public void ShowText(string textToShow)
+    public void ShowNarration(string textToShow)
     {
-        if (displayText == null) return;
+        if (narrationText == null) return;
 
         if (currentDisplayCoroutine != null)
         {
             StopCoroutine(currentDisplayCoroutine);
         }
-        currentDisplayCoroutine = StartCoroutine(AnimateText(textToShow));
+        currentDisplayCoroutine = StartCoroutine(AnimateNarration(textToShow));
     }
 
-    private IEnumerator AnimateText(string text)
+    private IEnumerator AnimateNarration(string text)
     {
-        displayText.text = "";
+        narrationText.text = "";
         float timePerChar = 1f / charactersPerSecond;
 
         foreach (char c in text)
         {
-            displayText.text += c;
+            narrationText.text += c;
             yield return new WaitForSeconds(timePerChar);
         }
 
         yield return new WaitForSeconds(lingerTime);
 
-        displayText.text = ""; // Clear text after linger time
+        narrationText.text = ""; // Clear text after linger time
     }
 }

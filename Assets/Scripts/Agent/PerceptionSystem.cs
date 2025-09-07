@@ -2,86 +2,67 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 
+/// <summary>
+/// Represents an object that has been detected by the agent's sensors.
+/// </summary>
+public class PerceivedObject
+{
+    public Transform transform;
+    public string tag;
+
+    public PerceivedObject(Transform t)
+    {
+        transform = t;
+        tag = t.tag;
+    }
+}
+
+/// <summary>
+/// Acts as a registry for objects detected by the agent's trigger collider.
+/// This system is now passive and relies on the agent's physics events.
+/// </summary>
 public class PerceptionSystem : MonoBehaviour
 {
-    [Header("Perception Layers")]
-    public LayerMask agentLayer;
-    public LayerMask conceptLayer;
-    public LayerMask wallLayer; // Layer for environmental obstacles
+    private List<PerceivedObject> perceivedObjects = new List<PerceivedObject>();
 
-    public Transform goalTarget { get; set; }
-
-    private List<ArtificialHumanAgent> perceivedAgents = new List<ArtificialHumanAgent>();
-    private List<ConceptTag> perceivedConcepts = new List<ConceptTag>();
-
-    public void UpdatePerception(Transform t, float socialDetectionRadius)
+    /// <summary>
+    /// Registers an object that has entered the agent's perception range.
+    /// </summary>
+    public void RegisterObject(Transform objTransform)
     {
-        // --- Social Perception ---
-        perceivedAgents.Clear();
-        Collider[] agentColliders = Physics.OverlapSphere(t.position, socialDetectionRadius, agentLayer);
-        foreach (var collider in agentColliders)
+        if (objTransform != null && !perceivedObjects.Any(o => o.transform == objTransform))
         {
-            if (collider.transform == t) continue; // Don't perceive self
-            ArtificialHumanAgent agent = collider.GetComponent<ArtificialHumanAgent>();
-            if (agent != null) { perceivedAgents.Add(agent); }
-        }
-
-        // --- Conceptual Perception ---
-        perceivedConcepts.Clear();
-        Collider[] conceptColliders = Physics.OverlapSphere(t.position, socialDetectionRadius, conceptLayer);
-        foreach (var collider in conceptColliders)
-        {
-            ConceptTag tag = collider.GetComponent<ConceptTag>();
-            if (tag != null) { perceivedConcepts.Add(tag); }
+            perceivedObjects.Add(new PerceivedObject(objTransform));
         }
     }
 
-    public List<ArtificialHumanAgent> GetPerceivedAgents() => perceivedAgents;
-    public List<ConceptTag> GetPerceivedConcepts() => perceivedConcepts;
+    /// <summary>
+    /// De-registers an object that has exited the agent's perception range.
+    /// </summary>
+    public void DeregisterObject(Transform objTransform)
+    {
+        if (objTransform != null)
+        {
+            perceivedObjects.RemoveAll(o => o.transform == objTransform);
+        }
+    }
 
     /// <summary>
-    /// Finds the most open direction for exploration by casting rays in a circle.
+    /// Returns the list of all objects currently perceived by the agent.
     /// </summary>
-    /// <returns>A point in the most open direction, or null if no direction is found.</returns>
-    public Vector3? FindMostOpenArea(Transform agentTransform)
+    public List<PerceivedObject> GetPerceivedObjects()
     {
-        int numRays = 36; // Cast 36 rays (every 10 degrees)
-        float maxDistance = 0f;
-        Vector3 bestDirection = Vector3.zero;
-        float rayLength = 30f; // How far to check for obstacles
+        // We can add a check here to remove null objects if they get destroyed
+        perceivedObjects.RemoveAll(o => o.transform == null);
+        return perceivedObjects;
+    }
 
-        for (int i = 0; i < numRays; i++)
-        {
-            float angle = i * (360f / numRays);
-            Vector3 direction = Quaternion.Euler(0, angle, 0) * agentTransform.forward;
-
-            RaycastHit hit;
-            float currentDistance;
-
-            // Use wallLayer to only detect walls/obstacles
-            if (Physics.Raycast(agentTransform.position, direction, out hit, rayLength, wallLayer))
-            {
-                currentDistance = hit.distance;
-            }
-            else
-            {
-                // If the ray doesn't hit anything, it's a very open direction
-                currentDistance = rayLength;
-            }
-
-            if (currentDistance > maxDistance)
-            {
-                maxDistance = currentDistance;
-                bestDirection = direction;
-            }
-        }
-
-        if (maxDistance > 0)
-        {
-            // Return a point 10 units away in the best direction found
-            return agentTransform.position + bestDirection * 10f;
-        }
-
-        return null;
+    /// <summary>
+    /// Checks if a specific GameObject is currently in the list of perceived objects.
+    /// </summary>
+    public bool IsVisible(GameObject obj)
+    {
+        if (obj == null) return false;
+        return perceivedObjects.Any(o => o.transform == obj.transform);
     }
 }

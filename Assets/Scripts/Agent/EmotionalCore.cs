@@ -1,66 +1,91 @@
 using UnityEngine;
-using System.Collections.Generic;
 
+/// <summary>
+/// Manages the agent's emotions. It handles the decay of base emotions and calculates
+/// emergent meta-emotions based on the current state.
+/// </summary>
 public class EmotionalCore : MonoBehaviour
 {
     private AgentGenome genome;
+    private EmotionalState currentState = new EmotionalState();
+    private EmotionalState previousState;
 
-    public float satisfaction = 50f;
-    public float frustration = 0f;
-    public float anxiety = 0f;
-    public float curiosity = 0f;
-
-    private Dictionary<string, float> emotionalImpacts = new Dictionary<string, float>();
+    [Header("Emotional Dynamics")]
+    [Tooltip("How quickly emotions return to their baseline (per second).")]
+    [SerializeField] private float decayRate = 0.5f;
 
     public void Initialize(AgentGenome agentGenome)
     {
         this.genome = agentGenome;
+        if (genome != null)
+        {
+            // CORRECTED: Uses 'curiosity' from your AgentGenome.cs
+            currentState.curiosity = genome.curiosity * 100;
+        }
+        previousState = new EmotionalState(currentState);
     }
 
     void Update()
     {
-        DecayEmotions();
+        previousState = new EmotionalState(currentState);
+
+        // Decay base emotions
+        currentState.satisfaction = Mathf.MoveTowards(currentState.satisfaction, 50f, decayRate * Time.deltaTime);
+        currentState.frustration = Mathf.MoveTowards(currentState.frustration, 0f, decayRate * Time.deltaTime);
+        currentState.motivation = Mathf.MoveTowards(currentState.motivation, 50f, decayRate * Time.deltaTime);
+        currentState.composure = Mathf.MoveTowards(currentState.composure, 50f, decayRate * Time.deltaTime);
+        if (genome != null)
+        {
+            // CORRECTED: Uses 'curiosity' from your AgentGenome.cs
+            currentState.curiosity = Mathf.MoveTowards(currentState.curiosity, genome.curiosity * 100, decayRate * Time.deltaTime);
+        }
+
+        UpdateMetaEmotions();
+    }
+
+    private void UpdateMetaEmotions()
+    {
+        float satisfactionInverse = 1 - (currentState.satisfaction / 100f);
+        currentState.anxiety = Mathf.Clamp(currentState.frustration * satisfactionInverse, 0, 100);
+
+        float frustrationInverse = 1 - (currentState.frustration / 100f);
+        currentState.focus = Mathf.Clamp(currentState.motivation * frustrationInverse, 0, 100);
+    }
+
+    public EmotionalState GetCurrentState()
+    {
+        return currentState;
+    }
+
+    public EmotionalState GetEmotionalChange()
+    {
+        if (previousState == null)
+        {
+            previousState = new EmotionalState(currentState);
+        }
+        return EmotionalState.GetDifference(currentState, previousState);
     }
 
     public void TriggerEmotionalEvent(string eventType, float intensity)
     {
-        // The agent's genetic sensitivity amplifies the emotional impact.
-        float finalIntensity = intensity * genome.emotionalSensitivity;
-
-        switch (eventType)
+        switch (eventType.ToLower())
         {
             case "satisfaction":
-                satisfaction += finalIntensity;
+                currentState.satisfaction += intensity;
                 break;
             case "frustration":
-                frustration += finalIntensity;
-                break;
-            case "anxiety":
-                anxiety += finalIntensity;
+                currentState.frustration += intensity;
                 break;
             case "curiosity":
-                curiosity += finalIntensity;
+                currentState.curiosity += intensity;
+                break;
+            case "motivation":
+                currentState.motivation += intensity;
                 break;
         }
-        ClampEmotions();
-    }
-
-    private void DecayEmotions()
-    {
-        // The genetic decay rate determines how quickly emotions fade.
-        float decay = genome.emotionalDecayRate * Time.deltaTime * 100f;
-
-        satisfaction = Mathf.Lerp(satisfaction, 50f, decay);
-        frustration = Mathf.Lerp(frustration, 0f, decay);
-        anxiety = Mathf.Lerp(anxiety, 0f, decay);
-        curiosity = Mathf.Lerp(curiosity, 0f, decay);
-    }
-
-    private void ClampEmotions()
-    {
-        satisfaction = Mathf.Clamp(satisfaction, 0, 100);
-        frustration = Mathf.Clamp(frustration, 0, 100);
-        anxiety = Mathf.Clamp(anxiety, 0, 100);
-        curiosity = Mathf.Clamp(curiosity, 0, 100);
+        currentState.satisfaction = Mathf.Clamp(currentState.satisfaction, 0, 100);
+        currentState.frustration = Mathf.Clamp(currentState.frustration, 0, 100);
+        currentState.curiosity = Mathf.Clamp(currentState.curiosity, 0, 100);
+        currentState.motivation = Mathf.Clamp(currentState.motivation, 0, 100);
     }
 }

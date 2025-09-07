@@ -13,38 +13,38 @@ public class UnderstoodConcept
 
 /// <summary>
 /// The agent's module for learning and understanding concepts in the world.
-/// It sees an object, asks the KnowledgeBridge what it is, and forms an internal model.
 /// </summary>
 public class Conceptualizer : MonoBehaviour
 {
     public Dictionary<string, UnderstoodConcept> knownConcepts = new Dictionary<string, UnderstoodConcept>();
 
     /// <summary>
-    /// Learns about a new concept by querying the KnowledgeBridge and digesting the information.
+    /// Learns about a new concept by querying the KnowledgeBridge instance.
     /// </summary>
     public UnderstoodConcept LearnNewConcept(string conceptName)
     {
-        if (knownConcepts.ContainsKey(conceptName.ToUpper()))
+        string upperConceptName = conceptName.ToUpper();
+        if (knownConcepts.ContainsKey(upperConceptName))
         {
-            return knownConcepts[conceptName.ToUpper()];
+            return knownConcepts[upperConceptName];
         }
 
         Debug.Log($"<color=lightblue>[Conceptualizer] Encountered unknown concept: '{conceptName}'. Querying Knowledge Bridge...</color>");
-        string rawInfo = KnowledgeBridge.GetConceptInfo(conceptName);
-        Debug.Log($"<color=lightblue>[Conceptualizer] Info received: \"{rawInfo}\"</color>");
 
-        // --- The "Digestion" Process ---
-        UnderstoodConcept newConcept = new UnderstoodConcept { Name = conceptName.ToUpper() };
-        
-        if (rawInfo.Contains("Positivo")) newConcept.Valence = 1.0f;
-        else if (rawInfo.Contains("Negativo")) newConcept.Valence = -1.0f;
-        else newConcept.Valence = 0.0f;
+        // --- FIX: An object reference is required. Access the singleton Instance. ---
+        // Before: ConceptEntry conceptInfo = KnowledgeBridge.GetConceptInfo(conceptName);
+        ConceptEntry conceptInfo = KnowledgeBridge.Instance.GetConceptInfo(conceptName);
 
-        if (rawInfo.Contains("Peligroso") || rawInfo.Contains("Daño")) newConcept.IsDangerous = true;
+        Debug.Log($"<color=lightblue>[Conceptualizer] Info received for '{conceptInfo.name}'. Valence: {conceptInfo.valence}, Dangerous: {conceptInfo.isDangerous}</color>");
 
-        Debug.Log($"<color=lightblue>[Conceptualizer] Digested! '{newConcept.Name}' is considered { (newConcept.Valence > 0 ? "Good" : (newConcept.Valence < 0 ? "Bad" : "Neutral")) } and {(newConcept.IsDangerous ? "Dangerous" : "Safe")}.</color>");
+        var newConcept = new UnderstoodConcept
+        {
+            Name = conceptInfo.name,
+            Valence = conceptInfo.valence,
+            IsDangerous = conceptInfo.isDangerous
+        };
 
-        knownConcepts[newConcept.Name] = newConcept;
+        knownConcepts[upperConceptName] = newConcept;
         return newConcept;
     }
 }

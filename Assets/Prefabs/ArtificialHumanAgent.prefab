@@ -18,8 +18,6 @@ GameObject:
   - component: {fileID: 943381284357257078}
   - component: {fileID: 6658542272236749379}
   - component: {fileID: 4304384612883384569}
-  - component: {fileID: 1202930438879914131}
-  - component: {fileID: 63242759411399569}
   - component: {fileID: 8984217458919887003}
   - component: {fileID: 3051994244703334961}
   - component: {fileID: 7090199273836690163}
@@ -28,9 +26,13 @@ GameObject:
   - component: {fileID: 2217972699874317535}
   - component: {fileID: 1788796193928039069}
   - component: {fileID: 1356166402637963137}
+  - component: {fileID: 1645399207827624638}
+  - component: {fileID: 263371173417659547}
+  - component: {fileID: 7549067010232209526}
+  - component: {fileID: 1695874258102826165}
   m_Layer: 8
   m_Name: ArtificialHumanAgent
-  m_TagString: Untagged
+  m_TagString: Agent
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -166,8 +168,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 8
-    NumStackedVectorObservations: 1
+    VectorObservationSize: 5
+    NumStackedVectorObservations: 13
     m_ActionSpec:
       m_NumContinuousActions: 3
       BranchSizes: 01000000
@@ -177,8 +179,8 @@ MonoBehaviour:
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 1
-  m_BehaviorName: My Behavior
+  m_BehaviorType: 0
+  m_BehaviorName: ArtificialHuman
   TeamId: 0
   m_UseChildSensors: 1
   m_UseChildActuators: 1
@@ -211,9 +213,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb62189ab4e36334d9990b4ddc18c6af, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  moveSpeed: 3
+  moveSpeed: 1
   rotationSpeed: 120
-  maxVelocity: 5
+  maxVelocity: 2
 --- !u!114 &6658542272236749379
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -226,15 +228,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b6a0bbc8352219489887136248d2ede, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  agentLayer:
-    serializedVersion: 2
-    m_Bits: 256
-  conceptLayer:
-    serializedVersion: 2
-    m_Bits: 512
-  wallLayer:
-    serializedVersion: 2
-    m_Bits: 0
 --- !u!114 &4304384612883384569
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -247,40 +240,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6045166e1a5fe3c4d98f4f920b09e23b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  satisfaction: 50
-  frustration: 0
-  anxiety: 0
-  curiosity: 0
---- !u!114 &1202930438879914131
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8651111940122502067}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 895e99cfbdf45e64fb25996b41a60e24, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  goalReachedReward: 1
-  timePenalty: -0.001
-  distanceRewardMultiplier: -0.01
-  frustrationPenaltyMultiplier: -0.01
-  satisfactionRewardMultiplier: 0.005
-  curiosityReward: 0.0001
---- !u!114 &63242759411399569
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8651111940122502067}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2f4ab39e572c0224ea916b7678f70454, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  decayRate: 0.5
 --- !u!114 &8984217458919887003
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -296,14 +256,11 @@ MonoBehaviour:
   agentParameters:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
-  MaxStep: 5000
-  genome:
-    riskAversion: 0.5
-    socialOrientation: 0.5
-    curiosity: 0.5
-    emotionalSensitivity: 1
-    emotionalDecayRate: 0.01
-  socialDetectionRadius: 10
+  MaxStep: 100000
+  rotationSpeed: 100
+  forceMultiplier: 10
+  timePenalty: -0.005
+  wallPenalty: -0.2
 --- !u!114 &3051994244703334961
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -333,7 +290,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dcf8ac1f05ce82a428b80017a748dd4b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  displayText: {fileID: 0}
+  agentEmotionalCore: {fileID: 0}
+  satisfactionText: {fileID: 0}
+  frustrationText: {fileID: 0}
+  narrationText: {fileID: 0}
   charactersPerSecond: 50
   lingerTime: 3
 --- !u!114 &8288322675052259428
@@ -407,3 +367,94 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2618913751e009e45a5b6ea7c9c06d30, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &1645399207827624638
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8651111940122502067}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7296721657e5e84ab63cb5aca84459c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  genome:
+    riskAversion: 0.5
+    socialOrientation: 0.5
+    curiosity: 0.5
+    emotionalSensitivity: 1
+    emotionalDecayRate: 0.01
+  currentState: 0
+  decisionInterval: 0.5
+  narrator: {fileID: 263371173417659547}
+--- !u!114 &263371173417659547
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8651111940122502067}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: be93e5c00ca2fc944bce137dd3a89e61, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  OnNarrate:
+    m_PersistentCalls:
+      m_Calls:
+      - m_Target: {fileID: 0}
+        m_TargetAssemblyTypeName: TMPro.TMP_Text, Unity.TextMeshPro
+        m_MethodName: 
+        m_Mode: 0
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName: UnityEngine.Object, UnityEngine
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument: 
+          m_BoolArgument: 0
+        m_CallState: 2
+--- !u!135 &7549067010232209526
+SphereCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8651111940122502067}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Radius: 15
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!195 &1695874258102826165
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8651111940122502067}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 1
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4

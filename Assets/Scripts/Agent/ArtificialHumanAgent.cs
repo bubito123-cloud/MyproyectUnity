@@ -1,97 +1,81 @@
+
 using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
-using Unity.MLAgents.Sensors;
-using System;
-using UnityEngine.InputSystem;
+using Unity.MLAgents.Sensors; // We need this to use the VectorSensor
 
-[RequireComponent(typeof(Rigidbody))]
-[RequireComponent(typeof(EmotionalCore))]
+// NOTE: This body is now simpler. Observations are handled by the sensor.
+[RequireComponent(typeof(CognitiveController))]
 public class ArtificialHumanAgent : Agent
 {
-    private Rigidbody rb;
-    public AgentGenome genome;
+    // --- References to the scene ---
+    public Transform key;
+    public Transform goal;
 
-    [Header("Movement Parameters")]
-    public float forceMultiplier = 20f;
-    public float rotationSpeed = 100f;
+    // --- Internal Components ---
+    private CognitiveController cognitiveController;
+    private UnityEngine.AI.NavMeshAgent navMeshAgent;
 
-    [Header("Goal")]
-    public Transform target;
-
+    // Awake is called when the script instance is being loaded.
+    // We use this to initialize components to ensure they are ready
+    // before other methods like CollectObservations are called.
     public override void Initialize()
     {
-        rb = GetComponent<Rigidbody>();
-        if (genome == null) { genome = new AgentGenome(); }
-        GetComponent<EmotionalCore>().Initialize(genome);
+        cognitiveController = GetComponent<CognitiveController>();
+        navMeshAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
+
+        // Pass scene references to the cognitive controller
+        cognitiveController.key = this.key;
     }
 
     public override void OnEpisodeBegin()
     {
-        rb.linearVelocity = Vector3.zero;
-        rb.angularVelocity = Vector3.zero;
-        transform.localPosition = new Vector3(UnityEngine.Random.value * 8 - 4, 0.5f, UnityEngine.Random.value * 8 - 4);
-
-        // Find the Goal in the scene automatically
-        if (target == null)
-        {
-            Goal goal = FindObjectOfType<Goal>();
-            if (goal != null)
-            {
-                target = goal.transform;
-            }
-            else
-            {
-                Debug.LogError("Goal object with 'Goal' script not found in scene. Please add one.");
-                return; // Stop if no goal is found
-            }
-        }
-
-        target.localPosition = new Vector3(UnityEngine.Random.value * 8 - 4, 0.5f, UnityEngine.Random.value * 8 - 4);
-    }
-
-    public override void Heuristic(in ActionBuffers actionsOut)
-    {
-        var continuousActions = actionsOut.ContinuousActions;
-        var keyboard = Keyboard.current;
-        if (keyboard == null) return;
-
-        float horizontal = keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed ? 1f : (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed ? -1f : 0f);
-        float vertical = keyboard.wKey.isPressed || keyboard.upArrowKey.isPressed ? 1f : (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed ? -1f : 0f);
-
-        continuousActions[0] = horizontal;
-        continuousActions[1] = vertical;
-    }
-
-    public override void OnActionReceived(ActionBuffers actions)
-    {
-        float rotate = actions.ContinuousActions[0];
-        transform.Rotate(0, rotate * rotationSpeed * Time.deltaTime, 0);
-
-        float moveZ = actions.ContinuousActions[1];
-        Vector3 force = transform.forward * moveZ * forceMultiplier;
-        rb.AddForce(force);
-
-        AddReward(-0.05f);
+        cognitiveController.OnEpisodeBegin();
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
+        sensor.AddObservation(cognitiveController.HasKey() ? 1f : 0f);
+    }
+
+    public override void OnActionReceived(ActionBuffers actions)
+    {
+        AddReward(-1f / MaxStep);
+
+        int action = actions.DiscreteActions[0];
+
+        // --- DEBUG: Let's see what the agent is thinking! ---
+        // This will print the agent's state and its chosen action to the Unity Console.
+        Debug.Log($"Has Key: {cognitiveController.HasKey()} -> Action Chosen: {action}");
+
+        Transform target = null;
+
+        // Action 0: GoToKey
+        if (action == 0)
+        {
+            if (key != null)
+            {
+                target = key;
+            }
+        }
+        // Action 1: GoToGoal
+        else if (action == 1)
+        {
+            target = goal;
+        }
+
         if (target != null)
         {
-            sensor.AddObservation(target.localPosition);
-            sensor.AddObservation(transform.localPosition);
-            sensor.AddObservation(rb.linearVelocity.x);
-            sensor.AddObservation(rb.linearVelocity.z);
+            navMeshAgent.SetDestination(target.position);
         }
     }
 
-    private void OnCollisionEnter(Collision collision)
+    void OnTriggerEnter(Collider other)
     {
-        if (collision.gameObject.GetComponent<Goal>() != null)
-        {
-            AddReward(1.0f);
-            EndEpisode();
-        }
+        cognitiveController.ReportTriggerEnter(other);
     }
+
+    // --- Public methods for external components ---
+    public void AddAgentReward(float value) { AddReward(value); }
+    public void EndAgentEpisode() { EndEpisode(); }
 }

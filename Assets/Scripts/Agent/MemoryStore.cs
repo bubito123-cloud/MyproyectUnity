@@ -5,10 +5,13 @@ using System.Linq;
 public class EpisodicMemory
 {
     public Vector3 Position;
-    public Vector3 PerceptualEmbedding;
+    public Vector3 PerceptualEmbedding; // Represents the general context
     public float Strength;
     public float LastAccessTimestamp;
+
+    // --- MODIFIED: Added specific fields for trauma ---
     public bool IsTraumatic;
+    public string TraumaSourceConcept; // e.g., "FUEGO"
 
     public float GetSimilarity(Vector3 queryPosition, Vector3 queryEmbedding)
     {
@@ -22,7 +25,7 @@ public class MemoryStore : MonoBehaviour
 {
     [Header("Memory System Parameters")]
     public int memoryCapacity = 50;
-    public float decayTimeConstant = 180f;
+    public float decayTimeConstant = 180f; // in seconds
     [Range(0, 1)] public float reinforcementRate = 0.5f;
     public float reinforcementThreshold = 0.8f;
 
@@ -33,43 +36,51 @@ public class MemoryStore : MonoBehaviour
         ApplyMemoryDecay(Time.deltaTime);
     }
 
-    public void AddOrReinforceMemory(Vector3 position, Vector3 perceptualEmbedding, float initialStrength, bool isTraumatic)
+    public void AddOrReinforceMemory(Vector3 position, Vector3 perceptualEmbedding, float initialStrength, bool isTraumatic, string traumaSource = null)
     {
         var (mostSimilarMemory, similarity) = FindMostSimilarMemory(position, perceptualEmbedding);
 
         if (mostSimilarMemory != null && similarity >= reinforcementThreshold)
         {
-            mostSimilarMemory.Strength += reinforcementRate * (1f - mostSimilarMemory.Strength);
+            // Reinforce existing memory
+            mostSimilarMemory.Strength += reinforcementRate * (1 - mostSimilarMemory.Strength); // Approach 1.0
             mostSimilarMemory.LastAccessTimestamp = Time.time;
+            if (isTraumatic && string.IsNullOrEmpty(mostSimilarMemory.TraumaSourceConcept))
+            {
+                mostSimilarMemory.IsTraumatic = true;
+                mostSimilarMemory.TraumaSourceConcept = traumaSource;
+            }
         }
         else
         {
-            if (memories.Count >= memoryCapacity) EvictLeastRelevantMemory();
+            // Add new memory
+            if (memories.Count >= memoryCapacity)
+            {
+                EvictLeastRelevantMemory();
+            }
             memories.Add(new EpisodicMemory
             {
                 Position = position,
                 PerceptualEmbedding = perceptualEmbedding,
                 Strength = Mathf.Clamp01(initialStrength),
                 IsTraumatic = isTraumatic,
+                TraumaSourceConcept = traumaSource,
                 LastAccessTimestamp = Time.time
             });
         }
     }
 
-    // NEW METHOD: Specifically records a traumatic event.
-    public void RecordTrauma(Vector3 position, string description)
+    // --- MODIFIED: Method now takes the source concept of the trauma ---
+    public void RecordTrauma(Vector3 position, string sourceConceptName)
     {
-        // We don't have a system to convert `description` to an embedding, 
-        // so we use Vector3.zero as a placeholder for the perceptual context.
-        AddOrReinforceMemory(position, Vector3.zero, 1.0f, true);
+        Debug.Log($"<color=red>[Memory] Recording traumatic event at {position} caused by '{sourceConceptName}'.</color>");
+        // Use a placeholder for the general perceptual embedding, as the key info is the source concept.
+        AddOrReinforceMemory(position, Vector3.one * -1, 1.0f, true, sourceConceptName.ToUpper());
     }
 
-    // NEW METHOD: Gets a list of all traumatic memories.
     public List<EpisodicMemory> GetRecentTraumas()
     {
-        // Returns all memories flagged as traumatic. A more complex implementation
-        // could filter by time, but for now this fulfills the compiler's need.
-        return memories.Where(m => m.IsTraumatic).ToList();
+        return memories.Where(m => m.IsTraumatic).OrderByDescending(m => m.LastAccessTimestamp).ToList();
     }
 
     public EpisodicMemory FindMostRelevantMemory(Vector3 queryPosition, Vector3 queryEmbedding)
@@ -101,23 +112,35 @@ public class MemoryStore : MonoBehaviour
         for (int i = memories.Count - 1; i >= 0; i--)
         {
             memories[i].Strength *= decayFactor;
-            if (memories[i].Strength < 0.01f && !memories[i].IsTraumatic) memories.RemoveAt(i);
+            // Non-traumatic memories fade away completely
+            if (memories[i].Strength < 0.01f && !memories[i].IsTraumatic)
+            {
+                memories.RemoveAt(i);
+            }
         }
     }
 
     private void EvictLeastRelevantMemory()
     {
+        // Find the weakest, oldest, non-traumatic memory to evict.
         var evictCandidate = memories
             .Where(m => !m.IsTraumatic)
             .OrderBy(m => m.Strength)
             .ThenBy(m => m.LastAccessTimestamp)
             .FirstOrDefault();
 
-        if (evictCandidate != null) { memories.Remove(evictCandidate); }
+        if (evictCandidate != null)
+        {
+            memories.Remove(evictCandidate);
+        }
         else
         {
-            var oldestTrauma = memories.OrderBy(m => m.Strength).ThenBy(m => m.LastAccessTimestamp).First();
-            memories.Remove(oldestTrauma);
+            // If all memories are traumatic, we must remove the weakest/oldest one.
+            var oldestTrauma = memories.OrderBy(m => m.Strength).ThenBy(m => m.LastAccessTimestamp).FirstOrDefault();
+            if (oldestTrauma != null)
+            {
+                memories.Remove(oldestTrauma);
+            }
         }
     }
 
