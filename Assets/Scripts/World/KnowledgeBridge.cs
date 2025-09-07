@@ -106,4 +106,19 @@ public class KnowledgeBridge : MonoBehaviour
     {
         return isInitialized;
     }
+
+    /// <summary>
+    /// Placeholder for querying an external knowledge source, like an LLM.
+    /// </summary>
+    /// <param name="question">The question the agent wants to ask.</param>
+    /// <returns>A string response from the oracle.</returns>
+    public string QueryOracle(string question)
+    {
+        Debug.Log($"<color=yellow>[Oracle] Received question: '{question}'</color>");
+        // In a real implementation, this would make a web request to an LLM API.
+        // For now, we return a canned response.
+        string hint = "Sometimes, what you are looking for is right where you started.";
+        Debug.Log($"<color=yellow>[Oracle] Responding with hint: '{hint}'</color>");
+        return hint;
+    }
 }

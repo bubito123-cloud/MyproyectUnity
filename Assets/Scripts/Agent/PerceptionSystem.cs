@@ -18,51 +18,84 @@ public class PerceivedObject
 }
 
 /// <summary>
-/// Acts as a registry for objects detected by the agent's trigger collider.
-/// This system is now passive and relies on the agent's physics events.
+/// REFACTORED: This is now an active vision system that uses raycasting to "see"
+/// objects and other agents in the environment.
 /// </summary>
 public class PerceptionSystem : MonoBehaviour
 {
+    [Header("Vision Parameters")]
+    public float viewRadius = 15f;
+    [Range(0, 360)]
+    public float viewAngle = 90f;
+    public int raycastCount = 10;
+    public LayerMask targetLayers;
+    public LayerMask obstacleLayers;
+
     private List<PerceivedObject> perceivedObjects = new List<PerceivedObject>();
+    private List<ArtificialHumanAgent> perceivedAgents = new List<ArtificialHumanAgent>();
 
-    /// <summary>
-    /// Registers an object that has entered the agent's perception range.
-    /// </summary>
-    public void RegisterObject(Transform objTransform)
+    void FixedUpdate()
     {
-        if (objTransform != null && !perceivedObjects.Any(o => o.transform == objTransform))
+        CastVisionRays();
+    }
+
+    private void CastVisionRays()
+    {
+        perceivedObjects.Clear();
+        perceivedAgents.Clear();
+
+        float stepAngle = viewAngle / raycastCount;
+        float startAngle = -viewAngle / 2;
+
+        for (int i = 0; i <= raycastCount; i++)
         {
-            perceivedObjects.Add(new PerceivedObject(objTransform));
+            float angle = startAngle + stepAngle * i;
+            Vector3 dir = Quaternion.Euler(0, angle, 0) * transform.forward;
+
+            RaycastHit hit;
+            if (Physics.Raycast(transform.position, dir, out hit, viewRadius, targetLayers))
+            {
+                Vector3 directionToTarget = (hit.transform.position - transform.position).normalized;
+                float distanceToTarget = Vector3.Distance(transform.position, hit.transform.position);
+
+                if (!Physics.Raycast(transform.position, directionToTarget, distanceToTarget, obstacleLayers))
+                {
+                    // Check if it's an agent or an object
+                    ArtificialHumanAgent agent = hit.transform.GetComponent<ArtificialHumanAgent>();
+                    if (agent != null && agent != this.GetComponent<ArtificialHumanAgent>()) // Don't perceive self
+                    {
+                        if (!perceivedAgents.Contains(agent)) perceivedAgents.Add(agent);
+                    }
+                    else
+                    {
+                        if (!perceivedObjects.Any(o => o.transform == hit.transform)) perceivedObjects.Add(new PerceivedObject(hit.transform));
+                    }
+                }
+            }
         }
     }
 
-    /// <summary>
-    /// De-registers an object that has exited the agent's perception range.
-    /// </summary>
-    public void DeregisterObject(Transform objTransform)
-    {
-        if (objTransform != null)
-        {
-            perceivedObjects.RemoveAll(o => o.transform == objTransform);
-        }
-    }
-
-    /// <summary>
-    /// Returns the list of all objects currently perceived by the agent.
-    /// </summary>
     public List<PerceivedObject> GetPerceivedObjects()
     {
-        // We can add a check here to remove null objects if they get destroyed
         perceivedObjects.RemoveAll(o => o.transform == null);
-        return perceivedObjects;
+        return new List<PerceivedObject>(perceivedObjects);
     }
 
-    /// <summary>
-    /// Checks if a specific GameObject is currently in the list of perceived objects.
-    /// </summary>
+    public List<ArtificialHumanAgent> GetPerceivedAgents()
+    {
+        perceivedAgents.RemoveAll(a => a == null);
+        return new List<ArtificialHumanAgent>(perceivedAgents);
+    }
+
     public bool IsVisible(GameObject obj)
     {
         if (obj == null) return false;
-        return perceivedObjects.Any(o => o.transform == obj.transform);
+        return perceivedObjects.Any(o => o.transform == obj.transform) || perceivedAgents.Any(a => a.gameObject == obj);
+    }
+
+    public void Clear()
+    {
+        perceivedObjects.Clear();
+        perceivedAgents.Clear();
     }
 }

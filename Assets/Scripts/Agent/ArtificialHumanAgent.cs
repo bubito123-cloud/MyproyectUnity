@@ -1,31 +1,24 @@
-
 using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
-using Unity.MLAgents.Sensors; // We need this to use the VectorSensor
+using Unity.MLAgents.Sensors;
 
-// NOTE: This body is now simpler. Observations are handled by the sensor.
-[RequireComponent(typeof(CognitiveController))]
+// NOTE: This body is now a simple interface between the ML-Agents plugin and the CognitiveController.
+// It holds no logic of its own and purely executes commands or passes data.
+[RequireComponent(typeof(CognitiveController), typeof(UnityEngine.AI.NavMeshAgent))]
 public class ArtificialHumanAgent : Agent
 {
-    // --- References to the scene ---
-    public Transform key;
-    public Transform goal;
+    // --- All references are now managed by the CognitiveController ---
 
     // --- Internal Components ---
     private CognitiveController cognitiveController;
     private UnityEngine.AI.NavMeshAgent navMeshAgent;
 
-    // Awake is called when the script instance is being loaded.
-    // We use this to initialize components to ensure they are ready
-    // before other methods like CollectObservations are called.
+    // We use Initialize to get references to components.
     public override void Initialize()
     {
         cognitiveController = GetComponent<CognitiveController>();
         navMeshAgent = GetComponent<UnityEngine.AI.NavMeshAgent>();
-
-        // Pass scene references to the cognitive controller
-        cognitiveController.key = this.key;
     }
 
     public override void OnEpisodeBegin()
@@ -35,47 +28,36 @@ public class ArtificialHumanAgent : Agent
 
     public override void CollectObservations(VectorSensor sensor)
     {
-        sensor.AddObservation(cognitiveController.HasKey() ? 1f : 0f);
+        // The CognitiveController is now responsible for collecting all observations.
+        cognitiveController.CollectAgentObservations(sensor);
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        AddReward(-1f / MaxStep);
-
-        int action = actions.DiscreteActions[0];
-
-        // --- DEBUG: Let's see what the agent is thinking! ---
-        // This will print the agent's state and its chosen action to the Unity Console.
-        Debug.Log($"Has Key: {cognitiveController.HasKey()} -> Action Chosen: {action}");
-
-        Transform target = null;
-
-        // Action 0: GoToKey
-        if (action == 0)
-        {
-            if (key != null)
-            {
-                target = key;
-            }
-        }
-        // Action 1: GoToGoal
-        else if (action == 1)
-        {
-            target = goal;
-        }
-
-        if (target != null)
-        {
-            navMeshAgent.SetDestination(target.position);
-        }
+        // The CognitiveController is now responsible for interpreting actions.
+        AddReward(-1f / MaxStep); // A small penalty for every step to encourage efficiency.
+        cognitiveController.ProcessActions(actions);
     }
 
+    // This now represents a physical touch/interaction with an object.
     void OnTriggerEnter(Collider other)
     {
-        cognitiveController.ReportTriggerEnter(other);
+        cognitiveController.ReportTouch(other);
     }
 
-    // --- Public methods for external components ---
+    void OnTriggerExit(Collider other)
+    {
+        cognitiveController.ReportTouchExit(other);
+    }
+
+    // --- Public methods for the CognitiveController to command the agent's body ---
     public void AddAgentReward(float value) { AddReward(value); }
     public void EndAgentEpisode() { EndEpisode(); }
+    public void SetNavMeshDestination(Vector3 destination)
+    {
+        if (navMeshAgent != null && navMeshAgent.isOnNavMesh)
+        {
+            navMeshAgent.SetDestination(destination);
+        }
+    }
 }

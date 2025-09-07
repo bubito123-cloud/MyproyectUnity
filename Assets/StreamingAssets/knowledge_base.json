@@ -1,0 +1,58 @@
+{
+  "concepts": [
+    {
+      "name": "Key",
+      "description": "Unlocks things. Usually important.",
+      "valence": 0.8,
+      "isDangerous": false
+    },
+    {
+      "name": "Goal",
+      "description": "The ultimate objective. Reaching this is good.",
+      "valence": 1.0,
+      "isDangerous": false
+    },
+    {
+      "name": "Lava",
+      "description": "Extremely hot, molten rock. Do not touch.",
+      "valence": -1.0,
+      "isDangerous": true
+    },
+    {
+      "name": "Wall",
+      "description": "An obstacle that blocks movement.",
+      "valence": -0.1,
+      "isDangerous": false
+    },
+    {
+      "name": "Door",
+      "description": "A barrier that can sometimes be opened.",
+      "valence": -0.2,
+      "isDangerous": false
+    },
+    {
+      "name": "Switch",
+      "description": "An object that may affect other objects in the environment, like doors.",
+      "valence": 0.7,
+      "isDangerous": false
+    },
+    {
+      "name": "Agent",
+      "description": "Another entity like myself. Could be friend or foe.",
+      "valence": 0.0,
+      "isDangerous": false
+    },
+    {
+      "name": "Untagged",
+      "description": "An object with no specific meaning.",
+      "valence": 0.0,
+      "isDangerous": false
+    },
+    {
+      "name": "Interactable",
+      "description": "A generic object that can be interacted with.",
+      "valence": 0.1,
+      "isDangerous": false
+    }
+  ]
+}
